@@ -97,14 +97,14 @@ function setupMessageListener(): void {
 function waitForPlayerAndInject(): void {
   // Try immediately first
   if (injectButton()) {
-    // console.log('[YouTube Summarize] Button injected');
+    // console.log('[YoutubeGlance] Button injected');
     return;
   }
 
   // Watch for the controls container to appear
   const observer = new MutationObserver(() => {
     if (injectButton()) {
-      // console.log('[YouTube Summarize] Button injected (after DOM ready)');
+      // console.log('[YoutubeGlance] Button injected (after DOM ready)');
       observer.disconnect();
     }
   });
@@ -124,7 +124,7 @@ function initialize(): void {
   // URL check only — no DOM checks since we run at document_start
   if (!isYouTubeVideoURL()) return;
 
-  // console.log('[YouTube Summarize] Content script loaded, video:', getVideoId());
+  // console.log('[YoutubeGlance] Content script loaded, video:', getVideoId());
 
   // Message listener works immediately
   setupMessageListener();

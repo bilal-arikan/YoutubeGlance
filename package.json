@@ -1,7 +1,7 @@
 {
-  "name": "youtube-summarize-extension",
+  "name": "youtube-glance",
   "version": "1.0.0",
-  "description": "Chrome Extension that extracts YouTube video captions and generates a summary prompt for ChatGPT.",
+  "description": "Chrome Extension that extracts YouTube video captions and generates AI-ready summary prompts.",
   "main": "foreground.js",
   "scripts": {
     "build": "node scripts/build-extension.js && npm run copy-assets",

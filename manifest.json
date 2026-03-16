@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "YouTube Summarize Extension",
+    "name": "YoutubeGlance",
     "description": "Extract YouTube video captions and generate AI-ready summary prompts",
     "version": "0.0.1",
     "icons": {
@@ -9,7 +9,7 @@
         "128": "logo/logo-128.png"
     },
     "action": {
-        "default_title": "YouTube Summarize Extension",
+        "default_title": "YoutubeGlance",
         "default_popup": "popup/popup.html"
     },
     "permissions": ["clipboardWrite", "activeTab", "storage", "scripting"],

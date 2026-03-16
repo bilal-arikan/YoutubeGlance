@@ -1,8 +1,8 @@
 /**
  * Button Injection Module
  *
- * Injects the Summarize button into YouTube's player right-controls.
- * Handles click → extract captions → clipboard → ChatGPT (auto-paste) flow.
+ * Injects the YoutubeGlance button into YouTube's player right-controls.
+ * Handles click → extract captions → clipboard → AI platform (auto-paste) flow.
  */
 
 import { createButton, buttonExists } from './buttonStyles';
@@ -172,11 +172,11 @@ function showPlayerNotification(message: string, type: 'success' | 'error'): voi
   if (!player) return;
 
   // Remove existing notification
-  const existing = player.querySelector('.yt-summarize-notification');
+  const existing = player.querySelector('.yt-glance-notification');
   if (existing) existing.remove();
 
   const el = document.createElement('div');
-  el.className = 'yt-summarize-notification';
+  el.className = 'yt-glance-notification';
   Object.assign(el.style, {
     position: 'absolute',
     bottom: '80px',

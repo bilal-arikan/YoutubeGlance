@@ -1,5 +1,5 @@
 /**
- * Popup UI Controller
+ * YoutubeGlance - Popup UI Controller
  * Manages popup state, messaging, and user interactions
  */
 
@@ -341,14 +341,14 @@ class PopupUI {
       });
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`[YouTube Summarize] Done in ${elapsed}s`);
+      console.log(`[YoutubeGlance] Done in ${elapsed}s`);
 
       const sendMsg = this.state.autoSend ? ' ve gönderiliyor' : '';
       this.showStatus(`${platformName}'e yapıştırılıyor${sendMsg}...`, 'success');
       this.showButton('copy');
       this.showToast(`Altyazı kopyalandı! ${platformName}'e otomatik yapıştırılıyor...`);
     } catch (error) {
-      console.error('[YouTube Summarize] Error:', error);
+      console.error('[YoutubeGlance] Error:', error);
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
         this.showStatus('Clipboard access denied', 'error');
       } else {

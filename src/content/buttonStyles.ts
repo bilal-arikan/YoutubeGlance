@@ -4,10 +4,10 @@
  * Creates a YouTube-native looking player button with SVG icon.
  * Matches the style of built-in controls (CC, settings, fullscreen).
  *
- * Icon: Document with text lines + AI sparkle (summarize concept)
+ * Icon: Document with text lines + AI sparkle (glance concept)
  */
 
-const BUTTON_ID = 'yt-summarize-btn';
+const BUTTON_ID = 'yt-glance-btn';
 
 /**
  * Create SVG icon using DOM API (avoids Trusted Types CSP violation on YouTube).
@@ -70,15 +70,15 @@ function createIconSvg(): SVGSVGElement {
 }
 
 /**
- * Create the summarize button element styled like a native YouTube player button.
+ * Create the skim button element styled like a native YouTube player button.
  */
 export function createButton(): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.id = BUTTON_ID;
   btn.className = 'ytp-button';
-  btn.title = 'AI ile özetle';
-  btn.setAttribute('aria-label', 'Summarize with AI');
-  btn.setAttribute('data-tooltip-text', 'AI ile özetle');
+  btn.title = 'YoutubeGlance';
+  btn.setAttribute('aria-label', 'YoutubeGlance - Summarize with AI');
+  btn.setAttribute('data-tooltip-text', 'YoutubeGlance');
 
   // Match YouTube's native ytp-button: 48x40, padding 0, SVG ~24-26px
   Object.assign(btn.style, {
@@ -100,11 +100,37 @@ export function createButton(): HTMLButtonElement {
 
   btn.appendChild(createIconSvg());
 
+  // Custom tooltip (YouTube's native tooltip doesn't work for injected buttons)
+  const tooltip = document.createElement('div');
+  Object.assign(tooltip.style, {
+    position: 'absolute',
+    bottom: '46px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'rgba(28, 28, 28, 0.9)',
+    color: '#fff',
+    padding: '5px 9px',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: '500',
+    whiteSpace: 'nowrap',
+    pointerEvents: 'none',
+    opacity: '0',
+    transition: 'opacity 0.15s ease',
+    zIndex: '9999',
+    fontFamily: 'Roboto, Arial, sans-serif',
+    letterSpacing: '0.2px',
+  } as Record<string, string>);
+  tooltip.textContent = 'YoutubeGlance';
+  btn.appendChild(tooltip);
+
   btn.addEventListener('mouseenter', () => {
     btn.style.opacity = '1';
+    tooltip.style.opacity = '1';
   });
   btn.addEventListener('mouseleave', () => {
     btn.style.opacity = '0.9';
+    tooltip.style.opacity = '0';
   });
 
   return btn;
