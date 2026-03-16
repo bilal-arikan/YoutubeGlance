@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Summarize</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-brand">
+        <svg class="header-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span>YouTube Summarize</span>
+      </div>
+    </header>
+
+    <!-- Video Info -->
+    <section class="video-section">
+      <div id="video-icon" class="video-icon">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+          <line x1="7" y1="2" x2="7" y2="22"></line>
+          <line x1="17" y1="2" x2="17" y2="22"></line>
+          <line x1="2" y1="12" x2="22" y2="12"></line>
+          <line x1="2" y1="7" x2="7" y2="7"></line>
+          <line x1="2" y1="17" x2="7" y2="17"></line>
+          <line x1="17" y1="7" x2="22" y2="7"></line>
+          <line x1="17" y1="17" x2="22" y2="17"></line>
+        </svg>
+      </div>
+      <div class="video-info">
+        <p id="video-title" class="video-title">Loading video...</p>
+        <p id="video-meta" class="video-meta"></p>
+      </div>
+    </section>
+
+    <!-- Language Select -->
+    <section class="lang-section">
+      <span class="lang-label">Summary language</span>
+      <select id="lang-select" class="lang-select">
+        <option value="en">English</option>
+        <option value="tr">Türkçe</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="de">Deutsch</option>
+        <option value="pt">Português</option>
+        <option value="ru">Русский</option>
+        <option value="ja">日本語</option>
+        <option value="ko">한국어</option>
+        <option value="zh">中文</option>
+        <option value="ar">العربية</option>
+        <option value="hi">हिन्दी</option>
+        <option value="it">Italiano</option>
+        <option value="nl">Nederlands</option>
+        <option value="pl">Polski</option>
+      </select>
+    </section>
+
+    <!-- AI Platform -->
+    <section class="platform-section">
+      <span class="platform-label">AI Platform</span>
+      <select id="platform-select" class="platform-select">
+        <option value="chatgpt">ChatGPT</option>
+        <option value="claude">Claude</option>
+        <option value="gemini">Gemini</option>
+        <option value="aistudio">AI Studio</option>
+        <option value="grok">Grok</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="kimi">Kimi</option>
+        <option value="minimax">Minimax</option>
+      </select>
+    </section>
+
+    <!-- Prompt Template Selection -->
+    <section class="template-section">
+      <div class="template-header" id="template-toggle">
+        <span class="template-label">Prompt Template</span>
+        <svg id="template-chevron" class="template-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div id="template-body" class="template-body" style="display:none">
+        <!-- Preset Options -->
+        <div class="preset-list" id="preset-list">
+          <label class="preset-option">
+            <input type="radio" name="preset" value="short" checked>
+            <span class="preset-radio"></span>
+            <span class="preset-name">Short Summary (5-10 bullets)</span>
+          </label>
+          <label class="preset-option">
+            <input type="radio" name="preset" value="detailed">
+            <span class="preset-radio"></span>
+            <span class="preset-name">Detailed Summary (15-20 bullets)</span>
+          </label>
+          <label class="preset-option">
+            <input type="radio" name="preset" value="web-enhanced">
+            <span class="preset-radio"></span>
+            <span class="preset-name">Web-Enhanced Summary</span>
+          </label>
+          <label class="preset-option">
+            <input type="radio" name="preset" value="custom">
+            <span class="preset-radio"></span>
+            <span class="preset-name">Custom Template</span>
+          </label>
+        </div>
+
+        <!-- Custom Template Editor (only visible when "custom" is selected) -->
+        <div id="custom-editor" class="custom-editor" style="display:none">
+          <textarea id="prompt-template" class="template-textarea" rows="6" spellcheck="false"
+            placeholder="Use {{title}}, {{transcript}}, {{language}}, {{videoId}}"></textarea>
+          <div class="template-actions">
+            <button id="template-reset" class="template-btn">Reset</button>
+            <span id="template-status" class="template-status"></span>
+          </div>
+        </div>
+
+        <p class="template-hint">
+          Placeholders: <code>{{title}}</code> <code>{{transcript}}</code> <code>{{language}}</code> <code>{{videoId}}</code>
+        </p>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="settings-section">
+      <div class="setting-row">
+        <span class="setting-label">Auto-send prompt</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="auto-send-toggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Status -->
+    <section id="status-section" class="status-section"></section>
+
+    <!-- Actions -->
+    <section class="actions">
+      <button id="start-btn" class="btn-action" disabled>
+        <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span>Summarize</span>
+      </button>
+      <button id="retry-btn" class="btn-action btn-retry" style="display:none">
+        <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        <span>Retry</span>
+      </button>
+      <button id="copy-btn" class="btn-action btn-copy" style="display:none">
+        <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span>Copy Again</span>
+      </button>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Auto-pastes into selected AI after page loads</span>
+    </footer>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="popupUI.js"></script>
+</body>
+</html>

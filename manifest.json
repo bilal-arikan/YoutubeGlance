@@ -1,0 +1,43 @@
+{
+    "manifest_version": 3,
+    "name": "YouTube Summarize Extension",
+    "description": "Extract YouTube video captions and generate AI-ready summary prompts",
+    "version": "0.0.1",
+    "icons": {
+        "16": "logo/logo-16.png",
+        "48": "logo/logo-48.png",
+        "128": "logo/logo-128.png"
+    },
+    "action": {
+        "default_title": "YouTube Summarize Extension",
+        "default_popup": "popup/popup.html"
+    },
+    "permissions": ["clipboardWrite", "activeTab", "storage", "scripting"],
+    "host_permissions": [
+        "*://*.youtube.com/*",
+        "*://*.openai.com/*",
+        "*://chatgpt.com/*",
+        "*://*.claude.ai/*",
+        "*://*.anthropic.com/*",
+        "*://*.gemini.google.com/*",
+        "*://aistudio.google.com/*",
+        "*://*.aistudio.google.com/*",
+        "*://grok.com/*",
+        "*://*.x.com/*",
+        "*://*.kimi.com/*",
+        "*://www.kimi.com/*",
+        "*://*.chat.deepseek.com/*",
+        "*://*.deepseek.com/*",
+        "*://agent.minimax.io/*",
+        "*://*.minimax.io/*"
+    ],
+    "background": {
+        "service_worker": "background/serviceWorker.js"
+    },
+    "content_scripts": [{
+        "js": ["content/buttonStyles.js", "content/buttonInjection.js", "content/youtubeDetection.js"],
+        "matches": ["*://*.youtube.com/watch*"],
+        "run_at": "document_start",
+        "all_frames": false
+    }]
+}
