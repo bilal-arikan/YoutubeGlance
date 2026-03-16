@@ -2,6 +2,9 @@
 
 Chrome Extension that extracts YouTube video captions and generates AI-ready summary prompts for multiple AI platforms.
 
+<img width="335" height="558" alt="image" src="https://github.com/user-attachments/assets/e38c1b58-22e0-4c5f-b62f-e740b7f2a4a6" />
+
+
 ## Features
 
 - Extract captions from YouTube videos with timestamps
