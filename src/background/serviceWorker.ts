@@ -646,8 +646,9 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string):
   }
 
   /**
-   * Fill a contenteditable editor using execCommand('insertText').
-   * This triggers Tiptap/ProseMirror/Lexical internal state updates properly.
+   * Fill a contenteditable editor by simulating a clipboard paste event.
+   * execCommand('insertText') is extremely slow for large texts in ProseMirror/Tiptap
+   * because the framework processes each character. Paste event is instant.
    */
   function fillContentEditable(editor: HTMLElement): void {
     editor.focus();
@@ -656,10 +657,25 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string):
       document.execCommand('selectAll', false);
       document.execCommand('delete', false);
     }
-    // Insert text via execCommand — this syncs with framework state
-    document.execCommand('insertText', false, text);
-    // Also dispatch input event as backup
-    editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+
+    // Simulate clipboard paste — this is handled natively by ProseMirror/Tiptap/Lexical
+    // and is orders of magnitude faster than insertText for large content
+    const dt = new DataTransfer();
+    dt.setData('text/plain', text);
+    const pasteEvent = new ClipboardEvent('paste', {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: dt,
+    });
+    const handled = !editor.dispatchEvent(pasteEvent);
+
+    // If paste event wasn't handled by framework, fall back to insertText
+    if (!handled && !editor.textContent?.trim()) {
+      document.execCommand('insertText', false, text);
+    }
+
+    // Dispatch input event as backup for state sync
+    editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: text }));
   }
 
   /**
