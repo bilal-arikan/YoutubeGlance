@@ -46,6 +46,7 @@ interface PopupState {
   selectedPreset: string;
   customTemplate: string;
   autoSend: boolean;
+  readAloud: boolean;
   selectedPlatform: string;
 }
 
@@ -59,6 +60,7 @@ class PopupUI {
     selectedPreset: 'short',
     customTemplate: getPresetById('custom')!.template,
     autoSend: false,
+    readAloud: false,
     selectedPlatform: 'chatgpt',
   };
 
@@ -71,7 +73,7 @@ class PopupUI {
   private initialize(): void {
     // Load saved preferences
     chrome.storage.local.get(
-      ['preferredLanguage', 'selectedPreset', 'customTemplate', 'autoSend', 'selectedPlatform'],
+      ['preferredLanguage', 'selectedPreset', 'customTemplate', 'autoSend', 'readAloud', 'selectedPlatform'],
       (result: any) => {
         if (result.preferredLanguage && LANGUAGE_NAMES[result.preferredLanguage]) {
           this.state.selectedLanguage = result.preferredLanguage;
@@ -89,6 +91,10 @@ class PopupUI {
           this.state.autoSend = result.autoSend;
         }
 
+        if (typeof result.readAloud === 'boolean') {
+          this.state.readAloud = result.readAloud;
+        }
+
         if (result.selectedPlatform && PLATFORM_URLS[result.selectedPlatform]) {
           this.state.selectedPlatform = result.selectedPlatform;
         }
@@ -98,6 +104,7 @@ class PopupUI {
         this.updatePlatformUI();
         this.updatePresetUI();
         this.updateAutoSendUI();
+        this.updateReadAloudUI();
       }
     );
 
@@ -169,6 +176,12 @@ class PopupUI {
     document.getElementById('auto-send-toggle')?.addEventListener('change', (e) => {
       this.state.autoSend = (e.target as HTMLInputElement).checked;
       chrome.storage.local.set({ autoSend: this.state.autoSend });
+    });
+
+    // Read aloud toggle
+    document.getElementById('read-aloud-toggle')?.addEventListener('change', (e) => {
+      this.state.readAloud = (e.target as HTMLInputElement).checked;
+      chrome.storage.local.set({ readAloud: this.state.readAloud });
     });
   }
 
@@ -242,6 +255,11 @@ class PopupUI {
   private updateAutoSendUI(): void {
     const toggle = document.getElementById('auto-send-toggle') as HTMLInputElement | null;
     if (toggle) toggle.checked = this.state.autoSend;
+  }
+
+  private updateReadAloudUI(): void {
+    const toggle = document.getElementById('read-aloud-toggle') as HTMLInputElement | null;
+    if (toggle) toggle.checked = this.state.readAloud;
   }
 
   private handleCustomTemplateChange(): void {
@@ -336,6 +354,7 @@ class PopupUI {
         data: {
           promptText: prompt,
           autoSend: this.state.autoSend,
+          readAloud: this.state.readAloud,
           platform: this.state.selectedPlatform,
         },
       });

@@ -468,6 +468,7 @@ async function handleOpenTabAndPaste(
   const url = message.url || 'https://chatgpt.com';
   const promptText = message.data?.promptText || '';
   const autoSend = message.data?.autoSend || false;
+  const readAloud = message.data?.readAloud || false;
   const platform = message.data?.platform || 'chatgpt';
 
   if (!promptText) {
@@ -493,7 +494,7 @@ async function handleOpenTabAndPaste(
         setTimeout(() => {
           chrome.scripting.executeScript({
             target: { tabId },
-            args: [promptText, autoSend, platform],
+            args: [promptText, autoSend, readAloud, platform],
             func: pasteIntoAIPlatform,
           }).catch(() => {});
         }, 2500);
@@ -517,13 +518,21 @@ async function handleOpenTabAndPaste(
  * Uses execCommand('insertText') for contenteditable editors (Tiptap/ProseMirror/Lexical)
  * to properly trigger framework state updates.
  */
-function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string): void {
+function pasteIntoAIPlatform(text: string, autoSend: boolean, readAloud: boolean, platform: string): void {
 
   // ── Platform-specific selectors ──
+  // Selectors include both English and Turkish (and other locale) variants
   const PLATFORM_CONFIG: Record<string, {
     editorSelectors: string[];
     sendSelectors: string[];
     sendViaEnter?: boolean;
+    // Read Aloud: how to trigger TTS on the last AI response
+    readAloudMethod?: 'direct' | 'menu';
+    // For 'menu' method: first open this menu button, then click the menuitem
+    readAloudMenuSelectors?: string[];
+    readAloudSelectors?: string[];
+    // Selectors that indicate the AI is still generating (streaming)
+    streamingIndicatorSelectors?: string[];
   }> = {
     chatgpt: {
       editorSelectors: [
@@ -534,7 +543,28 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string):
       sendSelectors: [
         'button[data-testid="send-button"]',
         'button[aria-label="Send prompt"]',
+        'button[aria-label*="prompt" i][data-testid]',
         'form button[type="submit"]',
+      ],
+      // ChatGPT moved Read Aloud into "More actions" menu
+      readAloudMethod: 'menu',
+      readAloudMenuSelectors: [
+        'button[aria-label="More actions"]',
+        'button[aria-label*="action" i]',
+        'button[aria-label*="Daha fazla" i]',
+        'button[aria-label*="İşlem" i]',
+      ],
+      readAloudSelectors: [
+        'div[role="menuitem"][aria-label="Read aloud"]',
+        'div[role="menuitem"][aria-label*="Sesli oku" i]',
+        'div[role="menuitem"][aria-label*="Read aloud" i]',
+        '[role="menuitem"][data-testid*="voice"]',
+      ],
+      streamingIndicatorSelectors: [
+        'button[data-testid="stop-button"]',
+        'button[aria-label="Stop generating"]',
+        'button[aria-label*="Oluşturmayı durdur" i]',
+        'button[aria-label*="Stop" i]',
       ],
     },
     claude: {
@@ -547,28 +577,47 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string):
       sendSelectors: [
         'button[aria-label="Send Message"]',
         'button[aria-label="Send message"]',
+        'button[aria-label*="Mesaj" i]',
         'fieldset button:last-of-type',
       ],
+      // Claude has no native read aloud — skip
     },
     gemini: {
       editorSelectors: [
+        '.ql-editor.textarea',
         'rich-textarea .ql-editor',
         'rich-textarea div[contenteditable="true"]',
-        '.text-input-field textarea',
-        'div[contenteditable="true"][aria-label*="prompt"]',
+        'div.ql-editor[role="textbox"]',
         '.input-area div[contenteditable="true"]',
       ],
       sendSelectors: [
         'button.send-button',
+        'button[aria-label="Mesaj gönder"]',
         'button[aria-label="Send message"]',
-        'button[aria-label*="Send"]',
+        'button[aria-label*="gönder" i]',
+        'button[aria-label*="Send" i]',
+      ],
+      readAloudMethod: 'direct',
+      readAloudSelectors: [
+        'button[aria-label="Dinle"]',
+        'button[aria-label="Listen"]',
+        'button[aria-label*="Dinle" i]',
+        'button[aria-label*="Listen" i]',
+        'button[mattooltip*="Dinle" i]',
+        'button[mattooltip*="Listen" i]',
+      ],
+      streamingIndicatorSelectors: [
+        'button[aria-label="Durdur"]',
+        'button[aria-label="Stop"]',
+        'button[aria-label*="Durdur" i]',
+        'button[aria-label*="Stop" i]',
       ],
     },
     aistudio: {
-      // Google AI Studio uses Angular Material components
       editorSelectors: [
         'textarea[aria-label*="prompt" i]',
         'textarea[aria-label*="Type something" i]',
+        'textarea[aria-label*="istem" i]',
         'ms-autosize-textarea textarea',
         'textarea.text-input',
         '.prompt-input textarea',
@@ -578,19 +627,35 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string):
       sendSelectors: [
         'button[aria-label="Run"]',
         'button[aria-label*="Run" i]',
+        'button[aria-label*="Çalıştır" i]',
         'button.run-button',
         'button[mat-raised-button][color="primary"]',
         'button[aria-label*="Send" i]',
       ],
+      // AI Studio has no read aloud
     },
     grok: {
-      // Grok uses Tiptap/ProseMirror contenteditable, NOT textarea
+      // Grok uses Tiptap/ProseMirror contenteditable + a hidden textarea
       editorSelectors: [
+        'div.tiptap.ProseMirror[contenteditable="true"]',
         'div.tiptap.ProseMirror',
-        'div[contenteditable="true"]',
+        'div[contenteditable="true"].ProseMirror',
       ],
       sendSelectors: [
         'button[type="submit"][aria-label]',
+        'button[aria-label="Gönder"]',
+        'button[aria-label="Send"]',
+      ],
+      readAloudMethod: 'direct',
+      readAloudSelectors: [
+        'button[aria-label*="Sesli oku" i]',
+        'button[aria-label*="Read aloud" i]',
+        'button[aria-label*="Dinle" i]',
+        'button[aria-label*="Listen" i]',
+      ],
+      streamingIndicatorSelectors: [
+        'button[aria-label*="Durdur" i]',
+        'button[aria-label*="Stop" i]',
       ],
     },
     deepseek: {
@@ -599,11 +664,10 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string):
         'textarea',
       ],
       sendSelectors: [],
-      // DeepSeek has no stable send button — submit via Enter key
       sendViaEnter: true,
+      // DeepSeek has no read aloud
     },
     kimi: {
-      // Kimi uses Lexical editor with role="textbox"
       editorSelectors: [
         'div.chat-input-editor[role="textbox"]',
         'div.chat-input-editor',
@@ -612,9 +676,9 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string):
       sendSelectors: [
         'div.send-button-container',
       ],
+      // Kimi TTS support uncertain — skip
     },
     minimax: {
-      // Minimax uses Tiptap/ProseMirror editor
       editorSelectors: [
         'div.tiptap-editor[contenteditable="true"]',
         'div.tiptap.ProseMirror.tiptap-editor',
@@ -624,6 +688,7 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string):
         '#input-send-icon',
         'div[data-input-icon="true"]',
       ],
+      // Minimax TTS support uncertain — skip
     },
   };
 
@@ -732,6 +797,117 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string):
     }
   }
 
+  /**
+   * Wait for the AI to finish generating its response, then trigger Read Aloud.
+   * Supports two methods:
+   * - 'direct': Click the read aloud button directly
+   * - 'menu': Open a "More actions" menu first, then click the menuitem inside
+   */
+  function waitForResponseAndReadAloud(): void {
+    const streamingSelectors = config.streamingIndicatorSelectors || [];
+    const readAloudSelectors = config.readAloudSelectors || [];
+    const readAloudMethod = config.readAloudMethod || 'direct';
+    const menuSelectors = config.readAloudMenuSelectors || [];
+
+    // No TTS support for this platform
+    if (readAloudSelectors.length === 0) return;
+
+    function isStillStreaming(): boolean {
+      for (const sel of streamingSelectors) {
+        if (document.querySelector(sel)) return true;
+      }
+      return false;
+    }
+
+    function findLastElement(selectors: string[]): HTMLElement | null {
+      for (const sel of selectors) {
+        const els = document.querySelectorAll(sel);
+        if (els.length > 0) {
+          return els[els.length - 1] as HTMLElement;
+        }
+      }
+      return null;
+    }
+
+    function triggerReadAloud(): void {
+      if (readAloudMethod === 'menu') {
+        // ChatGPT-style: buttons are hidden until hover on the response container
+        // First, hover over the last assistant message to reveal action buttons
+        const lastMsg = document.querySelector('[data-message-author-role="assistant"]:last-of-type')
+          || document.querySelector('[data-testid*="conversation-turn"]:last-of-type')
+          || document.querySelector('article:last-of-type');
+        if (lastMsg) {
+          lastMsg.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+          lastMsg.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        }
+
+        // Wait for hover to reveal buttons, then find "More actions"
+        setTimeout(() => {
+          const menuBtn = findLastElement(menuSelectors);
+          if (!menuBtn) return;
+
+          menuBtn.click();
+          // Wait for menu to render, then click "Read aloud"
+          setTimeout(() => {
+            const readAloudItem = findLastElement(readAloudSelectors);
+            if (readAloudItem) {
+              readAloudItem.click();
+            }
+          }, 600);
+        }, 500);
+      } else {
+        // Direct click — for Gemini/Grok style
+        // First hover on last response to reveal buttons if needed
+        const lastResponse = document.querySelector('.model-response-text:last-of-type')
+          || document.querySelector('[data-message-id]:last-of-type')
+          || document.querySelector('.response-container:last-of-type');
+        if (lastResponse) {
+          lastResponse.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+          lastResponse.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        }
+
+        setTimeout(() => {
+          const btn = findLastElement(readAloudSelectors);
+          if (btn) btn.click();
+        }, 500);
+      }
+    }
+
+    // Wait for streaming to start first (give it some time after send)
+    let waitForStart = 0;
+    const startCheck = setInterval(() => {
+      waitForStart++;
+      if (isStillStreaming()) {
+        clearInterval(startCheck);
+        pollForCompletion();
+      } else if (waitForStart >= 15) {
+        clearInterval(startCheck);
+        // Streaming never started — try anyway
+        setTimeout(triggerReadAloud, 2000);
+      }
+    }, 1000);
+
+    function pollForCompletion(): void {
+      let stableCount = 0;
+      const completionCheck = setInterval(() => {
+        if (!isStillStreaming()) {
+          stableCount++;
+          // Wait for 2 consecutive non-streaming checks (2s stable)
+          if (stableCount >= 2) {
+            clearInterval(completionCheck);
+            // Delay for UI to render action buttons
+            setTimeout(triggerReadAloud, 1500);
+          }
+        } else {
+          stableCount = 0;
+        }
+      }, 1000);
+
+      // Safety timeout: stop after 5 minutes
+      setTimeout(() => clearInterval(completionCheck), 300000);
+    }
+  }
+
   function tryPaste(): boolean {
     const editor = findEditor();
     if (!editor) return false;
@@ -740,7 +916,13 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, platform: string):
 
     if (autoSend) {
       // Wait for framework state to catch up before sending
-      setTimeout(() => triggerSend(editor), 600);
+      setTimeout(() => {
+        triggerSend(editor);
+        // If read aloud is enabled, wait for response and trigger TTS
+        if (readAloud) {
+          setTimeout(() => waitForResponseAndReadAloud(), 1000);
+        }
+      }, 600);
     }
 
     return true;

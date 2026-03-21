@@ -1,6 +1,6 @@
 {
   "name": "youtube-glance",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "description": "Chrome Extension that extracts YouTube video captions and generates AI-ready summary prompts.",
   "main": "foreground.js",
   "scripts": {

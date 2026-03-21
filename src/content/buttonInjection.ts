@@ -112,13 +112,14 @@ function attachClickHandler(btn: HTMLButtonElement): void {
     btn.style.opacity = '0.5';
 
     // Get saved preferences
-    chrome.storage.local.get(['preferredLanguage', 'selectedPreset', 'customTemplate', 'autoSend', 'selectedPlatform'], (result) => {
+    chrome.storage.local.get(['preferredLanguage', 'selectedPreset', 'customTemplate', 'autoSend', 'readAloud', 'selectedPlatform'], (result) => {
       const lang = result.preferredLanguage || 'en';
       const presetId = result.selectedPreset || 'short';
       const template = presetId === 'custom'
         ? (result.customTemplate || PRESET_TEMPLATES.custom)
         : (PRESET_TEMPLATES[presetId] || PRESET_TEMPLATES.short);
       const autoSend = result.autoSend || false;
+      const readAloud = result.readAloud || false;
       const platform = result.selectedPlatform || 'chatgpt';
       const platformUrl = PLATFORM_URLS[platform] || PLATFORM_URLS.chatgpt;
 
@@ -148,7 +149,7 @@ function attachClickHandler(btn: HTMLButtonElement): void {
             chrome.runtime.sendMessage({
               action: 'openTabAndPaste',
               url: platformUrl,
-              data: { promptText: prompt, autoSend, platform },
+              data: { promptText: prompt, autoSend, readAloud, platform },
             });
 
             showPlayerNotification(`${platformName} açılıyor, otomatik yapıştırılacak...`, 'success');
