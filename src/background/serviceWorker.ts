@@ -7,6 +7,9 @@
  * Service worker only orchestrates the executeScript call.
  */
 
+import { waitForTabReady } from './tabReady';
+import { verifyPromptInTab } from './promptVerification';
+
 interface MessagePayload {
   action: string;
   videoId?: string;
@@ -445,7 +448,9 @@ async function handleExtractCaptions(
       return;
     }
 
-    if (result.error) {
+    if (message.videoId && result.videoId && message.videoId !== result.videoId) {
+      sendResponse({ success: false, error: 'The video changed. Please try again.' });
+    } else if (result.error) {
       sendResponse({ success: false, error: result.error });
     } else {
       sendResponse({ success: true, data: result });
@@ -471,54 +476,31 @@ async function handleOpenTabAndPaste(
   const readAloud = message.data?.readAloud || false;
   const platform = message.data?.platform || 'chatgpt';
 
-  if (!promptText) {
-    if (url) chrome.tabs.create({ url });
-    sendResponse({ success: true });
-    return;
-  }
-
   try {
+    if (!promptText) throw new Error('The prompt is empty.');
     const tab = await chrome.tabs.create({ url });
-    const tabId = tab.id;
-    if (!tabId) {
-      sendResponse({ success: true });
-      return;
+    if (tab.id === undefined) throw new Error('Could not open the AI tab.');
+    await waitForTabReady(tab.id);
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      args: [promptText, autoSend, readAloud, platform],
+      func: pasteIntoAIPlatform,
+    });
+    if (!results.some(result => result.result === true)
+        && !await verifyPromptInTab(tab.id, promptText)) {
+      throw new Error('Could not confirm the prompt in the AI editor. Sign in and use the clipboard backup if needed.');
     }
-
-    // Listen for tab to finish loading, then inject paste script
-    const onUpdated = (updatedTabId: number, changeInfo: chrome.tabs.TabUpdateChangeInfo) => {
-      if (updatedTabId === tabId && changeInfo.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(onUpdated);
-
-        // Wait for SPA to fully render
-        setTimeout(() => {
-          chrome.scripting.executeScript({
-            target: { tabId },
-            args: [promptText, autoSend, readAloud, platform],
-            func: pasteIntoAIPlatform,
-          }).catch(() => {});
-        }, 2500);
-      }
-    };
-
-    chrome.tabs.onUpdated.addListener(onUpdated);
-
-    // Safety timeout: remove listener after 30s
-    setTimeout(() => chrome.tabs.onUpdated.removeListener(onUpdated), 30000);
-
     sendResponse({ success: true });
-  } catch {
-    if (message.url) chrome.tabs.create({ url: message.url });
-    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({ success: false, error: error instanceof Error ? error.message : 'Could not paste into the AI page.' });
   }
 }
-
 /**
  * Universal paste function injected into any AI platform page.
  * Uses execCommand('insertText') for contenteditable editors (Tiptap/ProseMirror/Lexical)
  * to properly trigger framework state updates.
  */
-function pasteIntoAIPlatform(text: string, autoSend: boolean, readAloud: boolean, platform: string): void {
+async function pasteIntoAIPlatform(text: string, autoSend: boolean, readAloud: boolean, platform: string): Promise<boolean> {
 
   // ── Platform-specific selectors ──
   // Selectors include both English and Turkish (and other locale) variants
@@ -914,6 +896,14 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, readAloud: boolean
 
     fillEditor(editor);
 
+    const inserted = editor.tagName === 'TEXTAREA'
+      ? (editor as HTMLTextAreaElement).value
+      : editor.innerText || editor.textContent || '';
+    const normalize = (value: string) => value.replace(/\s+/g, ' ').trim();
+    if (normalize(inserted) !== normalize(text)) {
+      throw new Error('The AI editor did not accept the full prompt. Use the clipboard backup or try again.');
+    }
+
     if (autoSend) {
       // Wait for framework state to catch up before sending
       setTimeout(() => {
@@ -929,15 +919,23 @@ function pasteIntoAIPlatform(text: string, autoSend: boolean, readAloud: boolean
   }
 
   // Try immediately, then retry a few times if editor isn't ready
-  if (tryPaste()) return;
-
-  let attempts = 0;
-  const interval = setInterval(() => {
-    attempts++;
-    if (tryPaste() || attempts >= 15) {
-      clearInterval(interval);
-    }
-  }, 1000);
+  if (tryPaste()) return true;
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const interval = setInterval(() => {
+      try {
+        attempts++;
+        const pasted = tryPaste();
+        if (pasted || attempts >= 15) {
+          clearInterval(interval);
+          resolve(pasted);
+        }
+      } catch (error) {
+        clearInterval(interval);
+        reject(error);
+      }
+    }, 1000);
+  });
 }
 
 chrome.runtime.onInstalled.addListener(() => {});

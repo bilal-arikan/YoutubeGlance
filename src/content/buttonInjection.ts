@@ -6,6 +6,10 @@
  */
 
 import { createButton, buttonExists } from './buttonStyles';
+import { getVideoId } from './videoLocation';
+import { extensionRequest } from '../utils/extensionRequest';
+import { deliverPrompt } from '../utils/promptDelivery';
+import { CaptionData } from '../types/caption';
 
 const CONTROLS_SELECTOR = '.ytp-right-controls';
 const MAX_TRANSCRIPT_LENGTH = 100000;
@@ -102,69 +106,44 @@ function generatePromptFromTemplate(
  * Click handler: extract captions → generate prompt → clipboard → ChatGPT (auto-paste)
  */
 function attachClickHandler(btn: HTMLButtonElement): void {
-  btn.addEventListener('click', (e) => {
+  btn.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // Prevent double-click
     if (btn.dataset.loading === 'true') return;
+    const videoId = getVideoId();
+    if (!videoId) return;
     btn.dataset.loading = 'true';
     btn.style.opacity = '0.5';
-
-    // Get saved preferences
-    chrome.storage.local.get(['preferredLanguage', 'selectedPreset', 'customTemplate', 'autoSend', 'readAloud', 'selectedPlatform'], (result) => {
-      const lang = result.preferredLanguage || 'en';
-      const presetId = result.selectedPreset || 'short';
+    try {
+      const result = await chrome.storage.local.get([
+        'preferredLanguage', 'selectedPreset', 'customTemplate', 'autoSend', 'readAloud', 'selectedPlatform',
+      ]);
+      const lang = typeof result.preferredLanguage === 'string' ? result.preferredLanguage : 'en';
+      const presetId = typeof result.selectedPreset === 'string' ? result.selectedPreset : 'short';
       const template = presetId === 'custom'
-        ? (result.customTemplate || PRESET_TEMPLATES.custom)
+        ? (typeof result.customTemplate === 'string' && result.customTemplate ? result.customTemplate : PRESET_TEMPLATES.custom)
         : (PRESET_TEMPLATES[presetId] || PRESET_TEMPLATES.short);
-      const autoSend = result.autoSend || false;
-      const readAloud = result.readAloud || false;
-      const platform = result.selectedPlatform || 'chatgpt';
-      const platformUrl = PLATFORM_URLS[platform] || PLATFORM_URLS.chatgpt;
-
-      chrome.runtime.sendMessage(
-        { action: 'extractCaptions', data: { preferredLang: lang } },
-        async (response) => {
-          if (chrome.runtime.lastError || !response?.success || !response.data) {
-            btn.dataset.loading = 'false';
-            btn.style.opacity = '0.9';
-            showPlayerNotification(response?.error || 'Altyazı bulunamadı', 'error');
-            return;
-          }
-
-          try {
-            const data = response.data;
-            const summaryLang = LANGUAGE_NAMES[lang] || 'English';
-
-            // Generate prompt using custom template
-            const prompt = generatePromptFromTemplate(template, data, summaryLang);
-
-            // Copy to clipboard (backup)
-            await navigator.clipboard.writeText(prompt);
-
-            const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
-
-            // Open AI platform and auto-paste (optionally auto-send)
-            chrome.runtime.sendMessage({
-              action: 'openTabAndPaste',
-              url: platformUrl,
-              data: { promptText: prompt, autoSend, readAloud, platform },
-            });
-
-            showPlayerNotification(`${platformName} açılıyor, otomatik yapıştırılacak...`, 'success');
-          } catch {
-            showPlayerNotification('Kopyalama başarısız', 'error');
-          } finally {
-            btn.dataset.loading = 'false';
-            btn.style.opacity = '0.9';
-          }
-        }
-      );
-    });
+      const platform = typeof result.selectedPlatform === 'string' ? result.selectedPlatform : 'chatgpt';
+      const response = await extensionRequest<CaptionData>({
+        action: 'extractCaptions', videoId, data: { preferredLang: lang },
+      });
+      if (!response.data) throw new Error('No captions were returned.');
+      if (!btn.isConnected || getVideoId() !== videoId || response.data.videoId !== videoId) {
+        throw new Error('The video changed. Please try again on the current video.');
+      }
+      const promptText = generatePromptFromTemplate(template, response.data, LANGUAGE_NAMES[lang] || 'English');
+      const copied = await deliverPrompt(PLATFORM_URLS[platform] || PLATFORM_URLS.chatgpt, {
+        promptText, platform, autoSend: result.autoSend === true, readAloud: result.readAloud === true,
+      });
+      showPlayerNotification(copied ? 'AI tab opened. Prompt copied as a backup.' : 'AI tab opened. Clipboard backup unavailable.', 'success');
+    } catch (error) {
+      showPlayerNotification(error instanceof Error ? error.message : 'Could not prepare the prompt. Please try again.', 'error');
+    } finally {
+      btn.dataset.loading = 'false';
+      btn.style.opacity = '0.9';
+    }
   });
 }
-
 /**
  * Show a brief notification overlay on the video player.
  */
@@ -200,17 +179,4 @@ function showPlayerNotification(message: string, type: 'success' | 'error'): voi
     el.style.opacity = '0';
     setTimeout(() => el.remove(), 300);
   }, 3000);
-}
-
-/**
- * Watch for SPA navigation and re-inject when needed.
- */
-export function setupButtonObserver(): void {
-  const check = () => {
-    if (!buttonExists() && findPlayerElement()) {
-      injectButton();
-    }
-  };
-
-  window.addEventListener('yt-navigate-finish', check);
 }

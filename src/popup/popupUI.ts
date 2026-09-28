@@ -4,6 +4,7 @@
  */
 
 import { CaptionData } from '../types/caption';
+import { deliverPrompt } from '../utils/promptDelivery';
 import { generatePrompt, getPresetById, PRESET_TEMPLATES } from '../utils/promptTemplate';
 
 const TOAST_DURATION = 4000;
@@ -124,7 +125,7 @@ class PopupUI {
         const titleEl = document.getElementById('video-title');
         const metaEl = document.getElementById('video-meta');
         const iconEl = document.getElementById('video-icon');
-        const startBtn = document.getElementById('start-btn');
+        const startBtn = document.getElementById('start-btn') as HTMLButtonElement | null;
 
         if (titleEl) titleEl.textContent = this.state.videoTitle;
         if (metaEl) metaEl.textContent = this.state.videoId;
@@ -340,38 +341,29 @@ class PopupUI {
       const prompt = generatePrompt(data, lang, template);
       this.state.promptText = prompt;
 
-      // Copy to clipboard
-      this.showStatus('Copying to clipboard...', 'loading');
-      await navigator.clipboard.writeText(prompt);
-
       const platformUrl = PLATFORM_URLS[this.state.selectedPlatform] || PLATFORM_URLS.chatgpt;
       const platformName = this.state.selectedPlatform.charAt(0).toUpperCase() + this.state.selectedPlatform.slice(1);
 
       // Open AI platform and auto-paste
-      chrome.runtime.sendMessage({
-        action: 'openTabAndPaste',
-        url: platformUrl,
-        data: {
+      const copied = await deliverPrompt(platformUrl, {
           promptText: prompt,
           autoSend: this.state.autoSend,
           readAloud: this.state.readAloud,
           platform: this.state.selectedPlatform,
-        },
       });
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`[YoutubeGlance] Done in ${elapsed}s`);
 
-      const sendMsg = this.state.autoSend ? ' ve gönderiliyor' : '';
-      this.showStatus(`${platformName}'e yapıştırılıyor${sendMsg}...`, 'success');
+      this.showStatus(`${platformName} opened. Preparing to paste...`, 'success');
       this.showButton('copy');
-      this.showToast(`Altyazı kopyalandı! ${platformName}'e otomatik yapıştırılıyor...`);
+      this.showToast(copied ? 'Prompt copied as a backup.' : 'Clipboard unavailable. Using direct paste.');
     } catch (error) {
       console.error('[YoutubeGlance] Error:', error);
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
         this.showStatus('Clipboard access denied', 'error');
       } else {
-        this.showStatus('Failed to copy to clipboard', 'error');
+        this.showStatus(error instanceof Error ? error.message : 'Could not open the AI platform', 'error');
       }
       this.showButton('retry');
     }

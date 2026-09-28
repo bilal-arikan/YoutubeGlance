@@ -117,7 +117,7 @@ describe('Button Injection Module', () => {
       expect(btn!.nextSibling).toBe(settingsBtn);
     });
 
-    it('should append to controls when no anchor buttons found', () => {
+    it('should prepend to controls when no anchor buttons found', () => {
       const player = setupPlayer();
       const controls = player.querySelector('.ytp-right-controls')!;
       const someBtn = document.createElement('div');
@@ -126,7 +126,7 @@ describe('Button Injection Module', () => {
 
       injectButton();
 
-      expect(controls.lastChild!).toBe(controls.querySelector(`#${BUTTON_ID}`));
+      expect(controls.firstChild!).toBe(controls.querySelector(`#${BUTTON_ID}`));
     });
 
     it('should create button with correct attributes', () => {
@@ -134,10 +134,10 @@ describe('Button Injection Module', () => {
       injectButton();
 
       const btn = document.getElementById(BUTTON_ID)!;
-      expect(btn.getAttribute('aria-label')).toBe('Summarize with AI');
+      expect(btn.getAttribute('aria-label')).toBe('YoutubeGlance - Summarize with AI');
       expect(btn.className).toContain('ytp-button');
       expect(btn.style.width).toBe('48px');
-      expect(btn.style.height).toBe('48px');
+      expect(btn.style.height).toBe('40px');
       expect(btn.style.background).toBe('transparent');
     });
 

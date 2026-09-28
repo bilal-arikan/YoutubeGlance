@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "YoutubeGlance",
     "description": "Extract YouTube video captions and generate AI-ready summary prompts",
-    "version": "0.0.2",
+    "version": "0.0.4",
     "icons": {
         "16": "logo/logo-16.png",
         "48": "logo/logo-48.png",
@@ -35,8 +35,8 @@
         "service_worker": "background/serviceWorker.js"
     },
     "content_scripts": [{
-        "js": ["content/buttonStyles.js", "content/buttonInjection.js", "content/youtubeDetection.js"],
-        "matches": ["*://*.youtube.com/watch*"],
+        "js": ["content/youtubeDetection.js"],
+        "matches": ["*://*.youtube.com/*"],
         "run_at": "document_start",
         "all_frames": false
     }]
